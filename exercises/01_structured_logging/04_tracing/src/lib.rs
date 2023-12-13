@@ -49,7 +49,20 @@ pub use subscriber::init_test_subscriber;
 pub fn get_total(order_numbers: &[u64]) -> Result<u64, anyhow::Error> {
     // Tip: use `tracing::info_span!` to create a new span.
     // You'll have to learn about the *RAII guard* pattern!
-    todo!()
+    let span = tracing::info_span!("process total price");
+    let enter = span.enter();
+    let mut t = 0;
+    for ord in order_numbers {
+        let price = match get_order_details(*ord) {
+            Ok(OrderDetails { order_number: _, price }) => price,
+            Err(e) => {
+                return Err(e);
+            }
+        };
+        t += price;
+    } 
+    
+    Ok(t)
 }
 
 pub struct OrderDetails {
@@ -59,13 +72,17 @@ pub struct OrderDetails {
 
 /// A dummy function to simulate what would normally be a database query.
 fn get_order_details(order_number: u64) -> Result<OrderDetails, anyhow::Error> {
-    if order_number % 4 == 0 {
-        Err(anyhow::anyhow!("Failed to talk to the database"))
-    } else {
-        let prices = vec![999, 1089, 1029];
-        Ok(OrderDetails {
-            order_number,
-            price: prices[order_number as usize % prices.len()],
-        })
-    }
+    let span = tracing::info_span!("retrieve order");
+    span.in_scope(|| {
+
+        if order_number % 4 == 0 {
+            Err(anyhow::anyhow!("Failed to talk to the database"))
+        } else {
+            let prices = vec![999, 1089, 1029];
+            Ok(OrderDetails {
+                order_number,
+                price: prices[order_number as usize % prices.len()],
+            })
+        }
+    })
 }
